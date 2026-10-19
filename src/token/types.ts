@@ -121,6 +121,9 @@ export type LiveListing = {
 /** GET /market/listings */
 export type MarketListings = {
     listings: LiveListing[];
+    has_more: boolean;
+    /** the cursor_id of the next page */
+    next_cursor_id: number | null;
 } & Record<string, unknown>;
 
 /** sort of the live market listings */
@@ -168,7 +171,23 @@ export type MarketHistoryEntry = {
 /** GET /market/history */
 export type MarketHistory = {
     history: MarketHistoryEntry[];
+    has_more: boolean;
+    /** the cursor of the next page */
+    next_cursor: number | null;
 } & Record<string, unknown>;
+
+/** GET /market/sales, one of the player's own open listings */
+export type OpenListing = {
+    uid: number;
+    marketid: number;
+    /** the item instance */
+    skinid: number;
+    skinindex: number;
+    /** asking price in kr */
+    funds: number;
+    /** unix ms */
+    listed_time: number;
+};
 
 /** sort, cursor and limit of GET /market/history */
 export type MarketHistoryQuery = {
@@ -199,14 +218,16 @@ export type Trade = {
     skbuy: TradeItem[];
     csell: TradeCurrency[];
     cbuy: TradeCurrency[];
-    /** the other player's id */
+    /** id of the player who made the offer, their items are sksell */
     pl: number;
-    /** the buyer's id */
+    /** id of the player the offer went to, their items are skbuy */
     buy: number;
+    /** name of the player the offer went to */
     buyer: string;
+    /** name of the player who made the offer */
     player: string;
     message: string;
-    /** "YYYY-MM-DD HH:MM:SS" */
+    /** when the offer was made, "YYYY-MM-DD HH:MM:SS" utc; a completed trade keeps it */
     dte: string;
 };
 
@@ -214,7 +235,27 @@ export type Trade = {
 export type TradeHistory = {
     open: Trade[];
     completed: Trade[];
+    completed_has_more?: boolean;
 };
+
+/** the body the game posts to /market/list; krapio never sends it */
+export type MarketListRequest = { item_id: number; price: number; skin_id: number };
+/** the reply to POST /market/list: the kr left, the stack left of that skin, the new listing's market id */
+export type MarketListResult = { funds: number; cnt: number; marketid: number };
+/** the body the game posts to /market/unlist */
+export type MarketUnlistRequest = { market_id: number };
+/** the reply to POST /market/unlist */
+export type MarketUnlistResult = { response: "SUCCESS" | string };
+/** the body the game posts to /market/purchase */
+export type MarketPurchaseRequest = { market_id: number };
+/** the reply to POST /market/purchase: the kr left, the bought instance, the listing's market id and skin index */
+export type MarketPurchaseResult = { playerfunds: number; sid: number; mid: number; skn: number };
+/** the body the game posts to /trades/create */
+export type TradeCreateRequest = { target_player_id: number; my_offer: { i: number; c: number }[]; their_offer: { i: number; c: number }[]; message: string };
+/** the reply to POST /trades/create and POST /trades/:id/accept: the kr left */
+export type TradeFundsResult = { funds: number };
+/** the reply to POST /trades/:id/cancel */
+export type TradeCancelResult = { success: boolean };
 
 /** offset, limit and whether open trades are included */
 export type TradeHistoryQuery = {

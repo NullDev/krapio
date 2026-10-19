@@ -6863,7 +6863,7 @@
       "get": {
         "operationId": "token.market.listings",
         "summary": "Listings",
-        "description": "`me.market.listings({ item_id, items, sort, cursor_id, limit, rarities, weapons, types, wears, season, painted, searchTerm })`\n\nWhat the market tab shows. A token is required although the data is not about the player.\n\n| Name | Type | Description |\n| --- | --- | --- |\n| item_id | int | one skin index |\n| items | int list | several skin indices |\n| sort | string | `latest`, `price_asc`, `price_desc` or `popular` |\n| cursor_id | int | the last `uid` of the previous page |\n| limit | int | 1 to 100 |\n| rarities, weapons, types, wears | int list | comma separated filters |\n| season | int | |\n| painted | bool | sent as `1` when true |\n| searchTerm | string | |\n\n```ts\ntype MarketListings = {\n    listings: LiveListing[];\n};\n\ntype LiveListing = {\n    uid: number;\n    marketid: number;\n    skinid: number;          // the item instance\n    skinindex: number;\n    funds: number;           // asking price in kr\n    seller_id: number;\n    seller_name: string;\n    listed_time: number;     // unix ms\n    listing_count: number;   // how many of this skin the seller has listed\n};\n```",
+        "description": "`me.market.listings({ item_id, items, sort, cursor_id, limit, rarities, weapons, types, wears, season, painted, searchTerm })`\n\nWhat the market tab shows. A token is required although the data is not about the player.\n\n| Name | Type | Description |\n| --- | --- | --- |\n| item_id | int | one skin index |\n| items | int list | several skin indices |\n| sort | string | `latest`, `price_asc`, `price_desc` or `popular` |\n| cursor_id | int | the last `uid` of the previous page |\n| limit | int | 1 to 100 |\n| rarities, weapons, types, wears | int list | comma separated filters |\n| season | int | |\n| painted | bool | sent as `1` when true |\n| searchTerm | string | |\n\n```ts\ntype MarketListings = {\n    listings: LiveListing[];\n    has_more: boolean;\n    next_cursor_id: number | null;   // the cursor_id of the next page\n};\n\ntype LiveListing = {\n    uid: number;\n    marketid: number;\n    skinid: number;          // the item instance\n    skinindex: number;\n    funds: number;           // asking price in kr\n    seller_id: number;\n    seller_name: string;\n    listed_time: number;     // unix ms\n    listing_count: number;   // how many of this skin the seller has listed\n};\n```\n\n100 listings per page. Opening the market tab loads `sort=latest`; browsing by price walks `sort=price_asc` page by page through `next_cursor_id` (13 pages in 4 seconds in one recording), an item page loads `item_id=&sort=price_asc`.",
         "tags": [
           "token/market"
         ],
@@ -7125,7 +7125,7 @@
       "get": {
         "operationId": "token.market.sales",
         "summary": "Sales",
-        "description": "`me.market.sales()`\n\nThe player's open listings. Only ever seen `[]`.",
+        "description": "`me.market.sales()`\n\nThe player's own open listings, `[]` when there are none.\n\n```ts\ntype OpenListing = {\n    uid: number;\n    marketid: number;\n    skinid: number;          // the item instance\n    skinindex: number;\n    funds: number;           // asking price in kr\n    listed_time: number;     // unix ms\n};\n```",
         "tags": [
           "token/market"
         ],
@@ -7157,7 +7157,9 @@
                   "properties": {
                     "data": {
                       "type": "array",
-                      "items": {}
+                      "items": {
+                        "$ref": "#/components/schemas/OpenListing"
+                      }
                     },
                     "error": {
                       "type": "null"
@@ -7188,7 +7190,7 @@
       "get": {
         "operationId": "token.market.history",
         "summary": "History",
-        "description": "`me.market.history({ sort, cursor, limit })`\n\nThe player's completed buys and sells, newest first by default. `sort` is one of `date_asc`, `date_desc`, `amount_asc`, `amount_desc`, `item_asc`, `item_desc`; `limit` 1 to 100.\n\n```ts\ntype MarketHistory = {\n    history: {\n        marketid: number;\n        type: \"sell\" | \"buy\";\n        date: string;\n        skinindex: number;\n        amount: number;\n        other_party_id: number;\n        other_party_name: string;\n        status: string;\n    }[];\n};\n```",
+        "description": "`me.market.history({ sort, cursor, limit })`\n\nThe player's completed buys and sells, newest first by default. `sort` is one of `date_asc`, `date_desc`, `amount_asc`, `amount_desc`, `item_asc`, `item_desc`; `limit` 1 to 100.\n\n```ts\ntype MarketHistory = {\n    history: {\n        marketid: number;\n        type: \"sell\" | \"buy\";\n        date: string;\n        skinindex: number;\n        amount: number;\n        other_party_id: number;\n        other_party_name: string;\n        status: string;            // \"completed\"\n    }[];\n    has_more: boolean;\n    next_cursor: number | null;    // the cursor of the next page\n};\n```\n\n`date` is when the sale went through, a few seconds after the buyer's `POST /market/purchase` returned in one recording.",
         "tags": [
           "token/market"
         ],
@@ -9244,7 +9246,7 @@
       "get": {
         "operationId": "token.trades.history",
         "summary": "History",
-        "description": "`me.trades.history({ offset, limit, includeOpen })`\n\nOpen and completed trades of the player, `limit` 1 to 100. krapio sends `include_open=0` only when `includeOpen` is `false`.\n\n```ts\ntype TradeHistory = {\n    open: Trade[];\n    completed: Trade[];\n};\n\ntype Trade = {\n    trid: number;\n    sksell: { ind: number }[];         // items offered\n    skbuy: { ind: number }[];          // items asked for\n    csell: { cid: number; amt: number }[];\n    cbuy: { cid: number; amt: number }[];\n    pl: number;                        // the other player's id\n    buy: number;                       // the buyer's id\n    buyer: string;\n    player: string;\n    message: string;\n    dte: string;                       // \"YYYY-MM-DD HH:MM:SS\"\n};\n```",
+        "description": "`me.trades.history({ offset, limit, includeOpen })`\n\nOpen and completed trades of the player, `limit` 1 to 100. krapio sends `include_open=0` only when `includeOpen` is `false`.\n\n```ts\ntype TradeHistory = {\n    open: Trade[];\n    completed: Trade[];\n    completed_has_more?: boolean;\n};\n\ntype Trade = {\n    trid: number;\n    sksell: { ind: number }[];         // items the offering player gives\n    skbuy: { ind: number }[];          // items asked from the other player\n    csell: { cid: number; amt: number }[];\n    cbuy: { cid: number; amt: number }[];\n    pl: number;                        // id of the player who made the offer\n    buy: number;                       // id of the player the offer went to\n    buyer: string;                     // name of the player the offer went to\n    player: string;                    // name of the player who made the offer\n    message: string;\n    dte: string;                       // when the offer was made, \"YYYY-MM-DD HH:MM:SS\" utc\n};\n```\n\nThe sides follow the offer, not the reader: in the recipient's history `pl` and `player` are still the other player. `cid` 1 is kr. A completed trade keeps the `dte` of its offer, so an open trade and the same trade completed are identical apart from the list they are in. The trading window loads this with `include_open` on, and again with `include_open=0` about a second after an accept.",
         "tags": [
           "token/trades"
         ],
@@ -9603,6 +9605,9 @@
             "items": {
               "$ref": "#/components/schemas/Trade"
             }
+          },
+          "completed_has_more": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -9645,24 +9650,26 @@
           },
           "pl": {
             "type": "number",
-            "description": "the other player's id"
+            "description": "id of the player who made the offer, their items are sksell"
           },
           "buy": {
             "type": "number",
-            "description": "the buyer's id"
+            "description": "id of the player the offer went to, their items are skbuy"
           },
           "buyer": {
-            "type": "string"
+            "type": "string",
+            "description": "name of the player the offer went to"
           },
           "player": {
-            "type": "string"
+            "type": "string",
+            "description": "name of the player who made the offer"
           },
           "message": {
             "type": "string"
           },
           "dte": {
             "type": "string",
-            "description": "\"YYYY-MM-DD HH:MM:SS\""
+            "description": "when the offer was made, \"YYYY-MM-DD HH:MM:SS\" utc; a completed trade keeps it"
           }
         },
         "required": [
@@ -10356,10 +10363,22 @@
             "items": {
               "$ref": "#/components/schemas/MarketHistoryEntry"
             }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "the cursor of the next page"
           }
         },
         "required": [
-          "history"
+          "has_more",
+          "history",
+          "next_cursor"
         ],
         "description": "GET /market/history"
       },
@@ -10403,6 +10422,41 @@
         ],
         "description": "one completed buy or sell of the player"
       },
+      "OpenListing": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "number"
+          },
+          "marketid": {
+            "type": "number"
+          },
+          "skinid": {
+            "type": "number",
+            "description": "the item instance"
+          },
+          "skinindex": {
+            "type": "number"
+          },
+          "funds": {
+            "type": "number",
+            "description": "asking price in kr"
+          },
+          "listed_time": {
+            "type": "number",
+            "description": "unix ms"
+          }
+        },
+        "required": [
+          "uid",
+          "marketid",
+          "skinid",
+          "skinindex",
+          "funds",
+          "listed_time"
+        ],
+        "description": "GET /market/sales, one of the player's own open listings"
+      },
       "MarketListings": {
         "type": "object",
         "properties": {
@@ -10411,10 +10465,22 @@
             "items": {
               "$ref": "#/components/schemas/LiveListing"
             }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor_id": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "the cursor_id of the next page"
           }
         },
         "required": [
-          "listings"
+          "has_more",
+          "listings",
+          "next_cursor_id"
         ],
         "description": "GET /market/listings"
       },
