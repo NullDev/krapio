@@ -2,7 +2,7 @@ import type { KrunkerClient } from "../../client.js";
 import * as check from "../../validate.js";
 import { unwrap } from "../../game/envelope.js";
 import type { Envelope } from "../../game/types.js";
-import type { BlackMarket, BlackMarketRank, InventoryStack, MarketHistory, MarketHistoryQuery, MarketListings, MarketListingsQuery } from "../types.js";
+import type { BlackMarket, BlackMarketRank, InventoryStack, MarketHistory, MarketHistoryQuery, MarketListings, MarketListingsQuery, OpenListing } from "../types.js";
 
 // ========================= //
 // = Copyright (c) NullDev = //
@@ -50,9 +50,9 @@ export class TokenMarketApi {
         return unwrap(this.#gapi.get<Envelope<InventoryStack[]>>("/market/inventory", { route: "token.market.inventory", headers: this.#auth }));
     }
 
-    /** GET /market/sales, the player's open listings; only seen empty */
-    sales(): Promise<unknown[]> {
-        return unwrap(this.#gapi.get<Envelope<unknown[]>>("/market/sales", { route: "token.market.sales", headers: this.#auth }));
+    /** GET /market/sales, the player's own open listings */
+    sales(): Promise<OpenListing[]> {
+        return unwrap(this.#gapi.get<Envelope<OpenListing[]>>("/market/sales", { route: "token.market.sales", headers: this.#auth }));
     }
 
     /** GET /market/history, the player's completed buys and sells, newest first by default */

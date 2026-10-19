@@ -147,6 +147,8 @@ What the market tab shows. A token is required although the data is not about th
 ```ts
 type MarketListings = {
     listings: LiveListing[];
+    has_more: boolean;
+    next_cursor_id: number | null;   // the cursor_id of the next page
 };
 
 type LiveListing = {
@@ -161,6 +163,8 @@ type LiveListing = {
     listing_count: number;   // how many of this skin the seller has listed
 };
 ```
+
+100 listings per page. Opening the market tab loads `sort=latest`; browsing by price walks `sort=price_asc` page by page through `next_cursor_id` (13 pages in 4 seconds in one recording), an item page loads `item_id=&sort=price_asc`.
 
 ### Inventory
 
@@ -180,7 +184,18 @@ GET /market/sales
 
 `me.market.sales()`
 
-The player's open listings. Only ever seen `[]`.
+The player's own open listings, `[]` when there are none.
+
+```ts
+type OpenListing = {
+    uid: number;
+    marketid: number;
+    skinid: number;          // the item instance
+    skinindex: number;
+    funds: number;           // asking price in kr
+    listed_time: number;     // unix ms
+};
+```
 
 ### History
 
@@ -202,10 +217,14 @@ type MarketHistory = {
         amount: number;
         other_party_id: number;
         other_party_name: string;
-        status: string;
+        status: string;            // "completed"
     }[];
+    has_more: boolean;
+    next_cursor: number | null;    // the cursor of the next page
 };
 ```
+
+`date` is when the sale went through, a few seconds after the buyer's `POST /market/purchase` returned in one recording.
 
 ### Black Market
 
@@ -238,22 +257,25 @@ Open and completed trades of the player, `limit` 1 to 100. krapio sends `include
 type TradeHistory = {
     open: Trade[];
     completed: Trade[];
+    completed_has_more?: boolean;
 };
 
 type Trade = {
     trid: number;
-    sksell: { ind: number }[];         // items offered
-    skbuy: { ind: number }[];          // items asked for
+    sksell: { ind: number }[];         // items the offering player gives
+    skbuy: { ind: number }[];          // items asked from the other player
     csell: { cid: number; amt: number }[];
     cbuy: { cid: number; amt: number }[];
-    pl: number;                        // the other player's id
-    buy: number;                       // the buyer's id
-    buyer: string;
-    player: string;
+    pl: number;                        // id of the player who made the offer
+    buy: number;                       // id of the player the offer went to
+    buyer: string;                     // name of the player the offer went to
+    player: string;                    // name of the player who made the offer
     message: string;
-    dte: string;                       // "YYYY-MM-DD HH:MM:SS"
+    dte: string;                       // when the offer was made, "YYYY-MM-DD HH:MM:SS" utc
 };
 ```
+
+The sides follow the offer, not the reader: in the recipient's history `pl` and `player` are still the other player. `cid` 1 is kr. A completed trade keeps the `dte` of its offer, so an open trade and the same trade completed are identical apart from the list they are in. The trading window loads this with `include_open` on, and again with `include_open=0` about a second after an accept.
 
 ### Trade Inventories
 
@@ -274,6 +296,26 @@ GET /trades/player-search?name=:name
 `me.trades.playerSearch(playerName)`
 
 One player by exact name: `{player_id, player_name, player_score}`.
+
+---
+
+## Market and Trade Writes
+
+What the game posts when the player buys, lists or trades. krapio never sends any of these: they are here so a client that only reads what the game already did (a DevTools observer, a proxy) knows the shapes. Recorded once each in October 2026. The reply types are exported anyway (`MarketListResult`, `MarketPurchaseResult`, ...).
+
+| Request | Body | Reply `data` | The game then loads |
+| --- | --- | --- | --- |
+| `POST /market/list` | `{item_id, price, skin_id}` (skin index, kr, instance id) | `{funds, cnt, marketid}`: kr left, stack left of that skin, the new listing | `/market/inventory`, `/market/sales` |
+| `POST /market/unlist` | `{market_id}` | `{response: "SUCCESS"}` | `/market/inventory`, `/market/sales` |
+| `POST /market/purchase` | `{market_id}` | `{playerfunds, sid, mid, skn}`: kr left, the bought instance, the listing's market id and skin index | the listings again, not the history |
+| `POST /trades/create` | `{target_player_id, my_offer: {i, c}[], their_offer: {i, c}[], message}` | `{funds}` | `/trades/history` |
+| `POST /trades/:id/accept` | none | `{funds}` | `/trades/history?include_open=0` about a second later, with the trade under `completed` |
+| `POST /trades/:id/cancel` | none | `{success: true}` | nothing right away |
+| `POST /trades/decline-all` | none | not recorded | |
+
+The purchase reply has no price: it is the `funds` of that `marketid` in the listings the game loaded before, or `amount` in the buyer's market history later. Declining one incoming offer was not recorded; the game code has only `/cancel` and `/decline-all` for it.
+
+Refusals come as 400 with `{error: string}` and no `data`. Seen: `"Try again in 60 seconds"` (two accepts of an offer made 9 s and 89 s before, the third after 2.5 minutes went through), `"Market is busy. Please try again in a few seconds."` (a second list 5 s after the first), `"Try again in a few seconds"` (an unlist 23 s after listing).
 
 ---
 
