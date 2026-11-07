@@ -103,6 +103,17 @@ describe("Krunker", () => {
         expect(fake.calls[2]!.url.startsWith(GAPI_URL)).toBe(true);
     });
 
+    test("the /data files are jsonpack text, decoded", async() => {
+        const fake = fakeFetch([
+            ok("id|name|Arctic+Hunt^0^^@$0|3|1|2]]", { "Content-Type": "text/plain" }),
+            ok("itemPools|wheels^^^$0|$]|1|@]]", { "Content-Type": "text/plain" }),
+        ]);
+        const game = new KrunkerGameApi({ fetch: fake.fetch });
+        expect(await game.game.skins() as unknown[]).toEqual([{ id: 0, name: "Arctic Hunt" }]);
+        expect(await game.game.spins()).toEqual({ itemPools: {}, wheels: [] });
+        expect(fake.calls.map((c) => c.url)).toEqual([`${GAPI_URL}/data/skins`, `${GAPI_URL}/data/spins`]);
+    });
+
     test("bad arguments never cost a request", async() => {
         const fake = fakeFetch(anything);
         const krunker = new Krunker({ apiKey: "k", fetch: fake.fetch });

@@ -257,6 +257,24 @@ export type TradeFundsResult = { funds: number };
 /** the reply to POST /trades/:id/cancel */
 export type TradeCancelResult = { success: boolean };
 
+/** the body the FRVR sdk posts to crucible.frvr.com/v1/auth/login at page load; krapio never sends it */
+export type AnonymousLoginRequest = { platform: "anonymous" };
+/** the reply: a guest token (claims.extra.platform "anonymous"), the bearer of /auth/nonce and /auth/login/username */
+export type AnonymousLoginResult = { accessToken: string; refreshToken: string };
+/** the reply to POST /auth/nonce (no body); the nonce goes into the login's telemetry blob */
+export type AuthNonce = { nonce: string; issued_at: number };
+/** the body the game posts to /auth/login/username */
+export type UsernameLoginRequest = {
+    username: string;
+    password: string;
+    /** gzip + base64url of {n: nonce, v: 1, t: ms on the form, m: [ms, x, y][] mouse, k: [ms, 0 | 1][] keys} */
+    a: string;
+    /** the cloudflare turnstile token ("1.…"), single use */
+    b: string;
+};
+/** the reply to POST /auth/login/username; access_token is the FRVR token Krunker.as takes */
+export type UsernameLoginResult = { type: "login_ok" | string; login_token: string; access_token: string; refresh_token: string };
+
 /** offset, limit and whether open trades are included */
 export type TradeHistoryQuery = {
     offset?: number;

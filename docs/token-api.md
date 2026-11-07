@@ -9,7 +9,7 @@ In krapio these live under `krunker.as(token).*`. The token is sent as a bearer 
 
 ## The token
 
-The game gets it from `FRVR.auth.getFreshAccessToken()`: an RS256 JWT with the claims `sub` (the player's FRVR user id), `iss`, `iat`, `exp` and `extra`, valid for about 24 hours.
+The game gets it from `FRVR.auth.getFreshAccessToken()`, after the [login](#login) gave it out: an RS256 JWT with the claims `sub` (the player's FRVR user id), `iss`, `iat`, `exp` and `extra`, valid for about 24 hours.
 
 krapio decodes the claims without verifying the signature (Krunker does that) so a malformed or expired token throws `KrunkerTokenError` before any request, and exposes them as `session.claims`. `claims.sub` is the only stable key to cache anything read here under, never the token itself.
 
@@ -316,6 +316,52 @@ What the game posts when the player buys, lists or trades. krapio never sends an
 The purchase reply has no price: it is the `funds` of that `marketid` in the listings the game loaded before, or `amount` in the buyer's market history later. Declining one incoming offer was not recorded; the game code has only `/cancel` and `/decline-all` for it.
 
 Refusals come as 400 with `{error: string}` and no `data`. Seen: `"Try again in 60 seconds"` (two accepts of an offer made 9 s and 89 s before, the third after 2.5 minutes went through), `"Market is busy. Please try again in a few seconds."` (a second list 5 s after the first), `"Try again in a few seconds"` (an unlist 23 s after listing).
+
+---
+
+## Login
+
+How the page gets a token in the first place. krapio sends none of this, and it can't: the login needs a Cloudflare Turnstile token and the player's own mouse and key input from a real page. Recorded once in November 2026 with a fresh browser profile. The types are exported (`AuthNonce`, `UsernameLoginRequest`, `UsernameLoginResult`, `AnonymousLoginResult`).
+
+| Step | Request | Body | Reply |
+| --- | --- | --- | --- |
+| page load | `POST https://crucible.frvr.com/v1/auth/login` | `{"platform": "anonymous"}` | 201 `{accessToken, refreshToken}`, a guest token (`extra.platform` `anonymous`) |
+| submit | `POST /auth/nonce` | none | `{"data": {"nonce": "73c7a67b…", "issued_at": 1793662832}}`, a 32 hex nonce and unix seconds |
+| submit | Turnstile widget, see below | | a token `1.…` |
+| submit | `POST /auth/login/username` | `{username, password, a, b}` | `{"data": {"type": "login_ok", "login_token", "access_token", "refresh_token"}}` |
+
+Both gapi calls carry `Authorization: Bearer <the guest token>` and an `X-Idempotency-Key` UUID that is new for each request.
+
+- `a`: gzip, then base64url, of `{"n": <nonce>, "v": 1, "t": <ms on the form>, "m": [[ms, x, y], …], "k": [[ms, 0 | 1], …]}`. These are mouse samples about every 28 ms and key downs and ups. The key codes are not in it.
+- `b`: the Turnstile token. Single use and short lived.
+
+`access_token` is the FRVR token everything on this page takes (`extra.platform` `frvr`, about 24 h). `refresh_token` is a JWT as well, and `login_token` a 20 character string whose use was not traced. Once logged in, the page reloads the token-bound state (`/email/preferences`, `crucible.frvr.com/v1/iap/wallet/transactions`, …).
+
+The refusal when the security check doesn't pass (a replayed or missing `a`/`b`, or a stale nonce):
+
+```json
+{"error": "security check failed, refresh the page and try again"}
+```
+
+### Cloudflare Turnstile
+
+The page loads `challenges.cloudflare.com/turnstile/v0/api.js?render=explicit` at start and renders a widget itself at two points, both with sitekey `0x4AAAAAAD19NTFH3Itq7QOn`:
+
+1. When the matchmaker answers a seek with `400 {"error": "CaptchaRequired"}` (see [Joining a Game](game-api.md#joining-a-game)). Its token goes back as `captchaToken`.
+2. On every login submit, right after `/auth/nonce` returns. Its token is `b`.
+
+Both ran as a managed challenge and passed without a checkbox in 1.5 to 2.5 seconds. Each one is an iframe that posts to `/cdn-cgi/challenge-platform/h/g/fo/…` twice, plus a worker that probes `/pat/…` (a 401 there is expected, it's the Private Access Token probe) and `hagen.challenges.cloudflare.com`. An interactive checkbox was not seen. Cloudflare shows one when it doesn't trust the browser.
+
+### FRVR
+
+The FRVR SDK the page bundles also talks to:
+
+| Request | Auth | What |
+| --- | --- | --- |
+| `GET crucible.frvr.com/v1/iap/providers/web/GPEFWO1?checkout=1` | none | the store's payment providers (Stripe checkout) |
+| `GET crucible.frvr.com/v1/iap/products/GPEFWO1` | FRVR token | the store's products, `[]` here |
+| `GET crucible.frvr.com/v1/iap/wallet/transactions?consumed=false&status=SUCCESS` | FRVR token | unclaimed purchases to restore, after login |
+| `POST coeus.frvr.com/v1/tm5/krunker/:guid` | none | analytics, one JSON event per post (`page_loading`, `game_loaded`, `session_start`, `game_session_start`, `account_login`, `error`, …) with the session, map, lobby and, once logged in, the Krunker user id and wallet |
 
 ---
 

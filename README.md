@@ -99,7 +99,7 @@ Developer (root): `player` (profile, inventory, listings, matches, posts), `matc
 
 Webhooks: `verifyWebhook(rawBody, signatureHeader, secret)` checks a delivery's `Krunker-Signature` (HMAC-SHA256 on WebCrypto, 5 minute tolerance) and `signWebhook` produces one for your own tests. Answer 401 when it returns false, Krunker's signature check sends deliberately bad signatures and expects that.
 
-Game (`krunker.game`): `players`, `clans`, `turf`, `leaderboards`, `game` (maps, mods, titles, creator events), `shop`, `market`, `items`, `social`, `matchmaker`, `legacy`.
+Game (`krunker.game`): `players`, `clans`, `turf`, `leaderboards`, `game` (maps, mods, titles, creator events, the skin and spin data), `shop`, `market`, `items`, `social`, `matchmaker`, `legacy`.
 
 Token (`krunker.as(token)`): `player`, `market`, `trades`, `shop`, `creator`, `staff` (moderator and KPD roles only), `ranked`.
 

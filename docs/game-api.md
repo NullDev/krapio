@@ -580,6 +580,49 @@ GET /creators/events
 
 The menu's event and survey box: `{events: unknown[], polls: {id, title, description, ends_in}[]}`, `ends_in` in seconds.
 
+### Skins
+
+```http
+GET /data/skins
+```
+
+`krunker.game.game.skins()`
+
+Every skin the client knows, about 8150 of them, loaded once at start. Unlike the rest of gapi this is `text/plain` in [jsonpack](https://www.npmjs.com/package/jsonpack) format, no envelope, 1.2 MB (190 KB gzipped). krapio decodes it. Its own rate limit: `X-RateLimit-Limit: 1000` per 60 seconds, `Cache-Control: public, max-age=300`.
+
+The array index is the skin index the market, inventory and trades use. `id` is not: it is the texture or model number inside its weapon or slot (`weapon_1_107.png`), a string for paints, and missing on creator skins.
+
+```ts
+type GameSkin = {
+    id?: number | string;
+    name: string;
+    rarity: number;
+    seas: number;         // the season it came out in
+    thumbnail: string;    // https://assets.krunker.io/textures/previews/...
+    tradable: boolean;
+    weapon?: number;      // weapon skins
+    keyW?: string;        // the other slots: "Hat", "Back", "Knife", "Sprays", ...
+    creator?: string;
+    limited?: boolean;
+    limT?: string;        // "Gift", "Twitch", "Charity", ...
+    blackM?: boolean;     // black market: funds is the kr price, req/reqT the unlock requirement
+    noSale?: boolean | number;
+    noSpin?: boolean | number;
+    noQuickSell?: boolean | number;
+    // about 200 more keys of render config (offsets, shaders, sounds, paint masks)
+};
+```
+
+### Spins
+
+```http
+GET /data/spins
+```
+
+`krunker.game.game.spins()`
+
+The raw spin config, jsonpack like [Skins](#skins), `max-age=60`. `{itemPools: Record<string, {name, color, items}>, wheels}`: `items` are skin indices, a wheel's `pools` are keys of `itemPools` and `poolWeights` their chances in percent. It has the hidden and ended event wheels too (`hide`, `locked`, `startDate`, `endDate`); old ones carry only `rarities` and no `pools`. [Spin Wheels](#spin-wheels) is the shop's view of the live wheels with the pools inlined.
+
 ---
 
 ## Market
@@ -883,6 +926,25 @@ GET /game-info?game=:gameId
 `krunker.game.matchmaker.gameInfo(gameId)`
 
 One lobby as a game list entry. Ids look like `FRA:4kpj2`.
+
+### Joining a Game
+
+Not wrapped: seeking takes a slot on a lobby and can ask for a captcha. This is what the game does, recorded once in November 2026.
+
+| Request | Reply |
+| --- | --- |
+| `GET /generate-token` | a validation token |
+| `GET /seek-game?hostname=krunker.io&region=:region&autoChangeGame=false&validationToken=:token&dataQuery={"v":":build"}&accessToken=:frvrToken[&captchaToken=:turnstile]` | the lobby to connect to |
+
+`/generate-token` is plain text, `<unix seconds>:<base64 of 32 bytes>`. The game fetches a fresh one for every seek. `dataQuery.v` is the client build, and `accessToken` is the FRVR token (the anonymous one before login) as a query parameter, not a header.
+
+The first seek of the page came back `400 {"error":"CaptchaRequired"}`. The game then rendered a Cloudflare Turnstile widget (sitekey `0x4AAAAAAD19NTFH3Itq7QOn`, the same one the [login](token-api.md#login) uses), which passed without any interaction about 2.4 seconds later. It then fetched a new validation token and repeated the seek with `captchaToken=1.…`:
+
+```json
+{"changeReason": null, "gameId": "FRA:5awji", "host": "lobby-n6427-jf8nq.frankfurt.krunker.io", "port": 3000, "clientId": "406de4eb-…", "data": {"t": "d", "p": 62.3, "l": 41.3, "d": 21.0, "b": 2, "n": false}}
+```
+
+`data` is not read by anything visible. The game copies it into its analytics as `seek_t`, `seek_p`, … .
 
 ---
 

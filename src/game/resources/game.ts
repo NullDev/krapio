@@ -2,7 +2,8 @@ import type { KrunkerClient } from "../../client.js";
 import * as check from "../../validate.js";
 import { unwrap } from "../envelope.js";
 import type { LeaderboardOrder, LeaderboardType } from "../../developer/types.js";
-import type { CommunityMap, CommunityMapLeaderboard, CreatorEvents, Envelope, MapConfig, ModInfo, OfficialMap, Title } from "../types.js";
+import { unpack } from "../../jsonpack.js";
+import type { CommunityMap, CommunityMapLeaderboard, CreatorEvents, Envelope, GameSkin, GameSpins, MapConfig, ModInfo, OfficialMap, Title } from "../types.js";
 
 // ========================= //
 // = Copyright (c) NullDev = //
@@ -23,6 +24,16 @@ export class PublicGameApi {
     /** GET /maps, the official map list, index = id = preview image number */
     maps(): Promise<OfficialMap[]> {
         return unwrap(this.#gapi.get<Envelope<OfficialMap[]>>("/maps", { route: "game.game.maps" }));
+    }
+
+    /** GET /data/skins, every skin the client knows (1.2 MB jsonpack text, decoded here); index = skin index */
+    async skins(): Promise<GameSkin[]> {
+        return unpack(await this.#gapi.get("/data/skins", { route: "game.game.skins" }));
+    }
+
+    /** GET /data/spins, the spin config the client loads: every item pool by key and every wheel, the hidden ones too */
+    async spins(): Promise<GameSpins> {
+        return unpack(await this.#gapi.get("/data/spins", { route: "game.game.spins" }));
     }
 
     /** GET /maps/:id, the whole map file (120 KB for Burg) */

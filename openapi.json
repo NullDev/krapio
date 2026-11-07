@@ -2513,6 +2513,99 @@
         }
       }
     },
+    "/data/skins": {
+      "get": {
+        "operationId": "game.game.skins",
+        "summary": "Skins",
+        "description": "Every skin the client knows, about 8150 of them, loaded once at start. Unlike the rest of gapi this is `text/plain` in [jsonpack](https://www.npmjs.com/package/jsonpack) format, no envelope, 1.2 MB (190 KB gzipped). krapio decodes it. Its own rate limit: `X-RateLimit-Limit: 1000` per 60 seconds, `Cache-Control: public, max-age=300`.\n\nThe array index is the skin index the market, inventory and trades use. `id` is not: it is the texture or model number inside its weapon or slot (`weapon_1_107.png`), a string for paints, and missing on creator skins.\n\n```ts\ntype GameSkin = {\n    id?: number | string;\n    name: string;\n    rarity: number;\n    seas: number;         // the season it came out in\n    thumbnail: string;    // https://assets.krunker.io/textures/previews/...\n    tradable: boolean;\n    weapon?: number;      // weapon skins\n    keyW?: string;        // the other slots: \"Hat\", \"Back\", \"Knife\", \"Sprays\", ...\n    creator?: string;\n    limited?: boolean;\n    limT?: string;        // \"Gift\", \"Twitch\", \"Charity\", ...\n    blackM?: boolean;     // black market: funds is the kr price, req/reqT the unlock requirement\n    noSale?: boolean | number;\n    noSpin?: boolean | number;\n    noQuickSell?: boolean | number;\n    // about 200 more keys of render config (offsets, shaders, sounds, paint masks)\n};\n```",
+        "tags": [
+          "game/game"
+        ],
+        "x-krapio": "krunker.game.game.skins()",
+        "x-routes": [
+          "game.game.skins"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "ts",
+            "label": "krapio",
+            "source": "import { Krunker } from \"krapio\";\n\nconst krunker = new Krunker();\nconst skins = await krunker.game.game.skins();\n"
+          }
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GameSkin"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvelopeError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/data/spins": {
+      "get": {
+        "operationId": "game.game.spins",
+        "summary": "Spins",
+        "description": "The raw spin config, jsonpack like [Skins](#skins), `max-age=60`. `{itemPools: Record<string, {name, color, items}>, wheels}`: `items` are skin indices, a wheel's `pools` are keys of `itemPools` and `poolWeights` their chances in percent. It has the hidden and ended event wheels too (`hide`, `locked`, `startDate`, `endDate`); old ones carry only `rarities` and no `pools`. [Spin Wheels](#spin-wheels) is the shop's view of the live wheels with the pools inlined.",
+        "tags": [
+          "game/game"
+        ],
+        "x-krapio": "krunker.game.game.spins()",
+        "x-routes": [
+          "game.game.spins"
+        ],
+        "x-codeSamples": [
+          {
+            "lang": "ts",
+            "label": "krapio",
+            "source": "import { Krunker } from \"krapio\";\n\nconst krunker = new Krunker();\nconst spins = await krunker.game.game.spins();\n"
+          }
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameSpins"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvelopeError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/maps/{mapId}": {
       "get": {
         "operationId": "game.game.mapConfig",
@@ -13173,6 +13266,191 @@
           "name"
         ],
         "description": "GET /maps/:id, the whole map file (120 KB for Burg), only the keys the client reads are named"
+      },
+      "GameSpins": {
+        "type": "object",
+        "properties": {
+          "itemPools": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GameSpinPool"
+            }
+          },
+          "wheels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameSpinWheel"
+            }
+          }
+        },
+        "required": [
+          "itemPools",
+          "wheels"
+        ],
+        "description": "GET /data/spins, the raw spin config; /spins/wheels is the shop's view of the same wheels with the pools inlined"
+      },
+      "GameSpinPool": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "skin indices"
+          }
+        },
+        "required": [
+          "name",
+          "color",
+          "items"
+        ],
+        "description": "one item pool of GET /data/spins"
+      },
+      "GameSpinWheel": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "pools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "poolWeights": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "price": {
+            "type": "number"
+          },
+          "ticketIndex": {
+            "type": "number"
+          },
+          "ticketOnly": {
+            "type": "boolean"
+          },
+          "multi": {
+            "type": "number"
+          },
+          "hide": {
+            "type": "boolean"
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "description": "one wheel of GET /data/spins; pools are keys of GameSpins.itemPools, poolWeights their chances in percent. old event wheels have no pools, only `rarities`"
+      },
+      "GameSkin": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "description": "the texture or model number inside its weapon or slot (weapon_1_107.png), not unique; a string for paints, missing on creator skins"
+          },
+          "name": {
+            "type": "string"
+          },
+          "rarity": {
+            "type": "number"
+          },
+          "seas": {
+            "type": "number",
+            "description": "the season it came out in"
+          },
+          "thumbnail": {
+            "type": "string"
+          },
+          "tradable": {
+            "type": "boolean"
+          },
+          "weapon": {
+            "type": "number",
+            "description": "weapon index for weapon skins"
+          },
+          "keyW": {
+            "type": "string",
+            "description": "the cosmetic slot for the others: \"Hat\", \"Back\", \"Knife\", \"Sprays\", ..."
+          },
+          "type": {
+            "type": "number"
+          },
+          "creator": {
+            "type": "string"
+          },
+          "glow": {
+            "type": "boolean"
+          },
+          "limited": {
+            "type": "boolean"
+          },
+          "limT": {
+            "type": "string",
+            "description": "why it is limited: \"Gift\", \"Twitch\", \"Charity\", ..."
+          },
+          "noSale": {
+            "type": [
+              "boolean",
+              "number"
+            ]
+          },
+          "noSpin": {
+            "type": [
+              "boolean",
+              "number"
+            ]
+          },
+          "noQuickSell": {
+            "type": [
+              "boolean",
+              "number"
+            ]
+          },
+          "blackM": {
+            "type": "boolean",
+            "description": "black market items: the kr price and the unlock requirement"
+          },
+          "funds": {
+            "type": "number"
+          },
+          "req": {
+            "type": "string"
+          },
+          "reqT": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "rarity",
+          "seas",
+          "thumbnail",
+          "tradable"
+        ],
+        "description": "one entry of GET /data/skins; the array index is the skin index the market and inventory use. only the keys every entry or the market reads are named, the rest is render config (offsets, shaders, sounds)"
       },
       "OfficialMap": {
         "type": "object",

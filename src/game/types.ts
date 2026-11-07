@@ -546,6 +546,67 @@ export type MapConfig = {
     skyDome?: unknown;
 } & Record<string, unknown>;
 
+/** one entry of GET /data/skins; the array index is the skin index the market and inventory use.
+ * only the keys every entry or the market reads are named, the rest is render config (offsets, shaders, sounds) */
+export type GameSkin = {
+    /** the texture or model number inside its weapon or slot (weapon_1_107.png), not unique; a string for paints, missing on creator skins */
+    id?: number | string;
+    name: string;
+    rarity: number;
+    /** the season it came out in */
+    seas: number;
+    thumbnail: string;
+    tradable: boolean;
+    /** weapon index for weapon skins */
+    weapon?: number;
+    /** the cosmetic slot for the others: "Hat", "Back", "Knife", "Sprays", ... */
+    keyW?: string;
+    type?: number;
+    creator?: string;
+    glow?: boolean;
+    limited?: boolean;
+    /** why it is limited: "Gift", "Twitch", "Charity", ... */
+    limT?: string;
+    noSale?: boolean | number;
+    noSpin?: boolean | number;
+    noQuickSell?: boolean | number;
+    /** black market items: the kr price and the unlock requirement */
+    blackM?: boolean;
+    funds?: number;
+    req?: string;
+    reqT?: string;
+} & Record<string, unknown>;
+
+/** one item pool of GET /data/spins */
+export type GameSpinPool = {
+    name: string;
+    color: string;
+    /** skin indices */
+    items: number[];
+};
+
+/** one wheel of GET /data/spins; pools are keys of GameSpins.itemPools, poolWeights their chances in percent.
+ * old event wheels have no pools, only `rarities` */
+export type GameSpinWheel = {
+    name: string;
+    pools?: string[];
+    poolWeights?: number[];
+    price?: number;
+    ticketIndex?: number;
+    ticketOnly?: boolean;
+    multi?: number;
+    hide?: boolean;
+    locked?: boolean;
+    startDate?: string;
+    endDate?: string;
+} & Record<string, unknown>;
+
+/** GET /data/spins, the raw spin config; /spins/wheels is the shop's view of the same wheels with the pools inlined */
+export type GameSpins = {
+    itemPools: Record<string, GameSpinPool>;
+    wheels: GameSpinWheel[];
+};
+
 /** one player title of GET /titles */
 export type Title = {
     id: number;
